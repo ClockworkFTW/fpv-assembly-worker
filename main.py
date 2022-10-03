@@ -1,7 +1,10 @@
+import requests
 from datetime import date
-import getfpv
-import pyrodrone
-import racedayquads
+from bs4 import BeautifulSoup
+
+from vendors import getfpv, pyrodrone, racedayquads
+
+# TODO: Connect to database and get parts
 
 parts = [
     {
@@ -27,17 +30,22 @@ parts = [
 ]
 
 for part in parts:
-    today = date.today()
+
+    response = requests.get(part['product_url'])
+    soup = BeautifulSoup(response.content, 'html.parser')
 
     if part['vendor'] == "getfpv":
-        price = getfpv.getPrice(part['product_url'])
+        price = getfpv.getPrice(soup)
     
     if part['vendor'] == "pyrodrone":
-        price = pyrodrone.getPrice(part['product_url'])
+        price = pyrodrone.getPrice(soup)
 
     if part['vendor'] == "racedayquads":
-        price = racedayquads.getPrice(part['product_url'])
+        price = racedayquads.getPrice(soup)
 
     vendor = part['vendor']
+    today = date.today()
     
+    # TODO: Save prices to database
+
     print(today, price, vendor)
