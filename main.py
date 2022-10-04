@@ -1,51 +1,68 @@
-import requests
-from datetime import date
-from bs4 import BeautifulSoup
-
+import datetime
+import psycopg2
+from uuid import uuid4
+from config import postgres
 from vendors import getfpv, pyrodrone, racedayquads
 
-# TODO: Connect to database and get parts
 
-parts = [
-    {
-        "vendor": "getfpv",
-        "product_url": "https://www.getfpv.com/iflight-xing2-2506-1350kv-1650kv-1850kv-motor.html"
-    },
-    {
-        "vendor": "getfpv",
-        "product_url": "https://www.getfpv.com/rushfpv-rush-blade-60a-3-6s-blheli-32-4-in-1-esc-extreme-edition-30x30.html"
-    },
-    {
-        "vendor": "getfpv",
-        "product_url": "https://www.getfpv.com/armattan-odonata-1-6-nano-quadcopter-frame-kit.html"
-    },
-    {
-        "vendor": "pyrodrone",
-        "product_url": "https://pyrodrone.com/products/iflight-xing2-2506-1350kv-motor"
-    }, 
-    {
-        "vendor": "racedayquads",
-        "product_url": "https://www.racedayquads.com/products/emax-eco-ii-2306-2400kv-motor"
-    },
-]
+connection = None
 
-for part in parts:
+try:
 
-    response = requests.get(part['product_url'])
-    soup = BeautifulSoup(response.content, 'html.parser')
+    # Connect to PostgreSQL server
+    connection = psycopg2.connect(
+        database=postgres["database"],
+        user=postgres["user"],
+        password=postgres["password"],
+        host=postgres["host"],
+        port=postgres["port"],
+    )
 
-    if part['vendor'] == "getfpv":
-        price = getfpv.getPrice(soup)
-    
-    if part['vendor'] == "pyrodrone":
-        price = pyrodrone.getPrice(soup)
+    # Get all listings
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM listings")
+    rows = cursor.fetchall()
 
-    if part['vendor'] == "racedayquads":
-        price = racedayquads.getPrice(soup)
+    # Get price for each listing
+    for row in rows:
 
-    vendor = part['vendor']
-    today = date.today()
-    
-    # TODO: Save prices to database
+        listing_id = row[0]
+        vendor = row[1]
+        url = row[2]
 
-    print(today, price, vendor)
+        value = None
+
+        if vendor == "getfpv":
+            value = getfpv.getPrice(url)
+
+        if vendor == "pyrodrone":
+            value = pyrodrone.getPrice(url)
+
+        if vendor == "racedayquads":
+            value = racedayquads.getPrice(url)
+
+        price_id = str(uuid4())
+
+        now = datetime.datetime.now()
+
+        created_at = now
+        updated_at = now
+
+        # Create price entry
+        cursor.execute(
+            'INSERT INTO prices ("id", "value", "createdAt", "updatedAt", "listingId") VALUES(%s, %s, %s, %s, %s)',
+            (price_id, value, created_at, updated_at, listing_id),
+        )
+
+        connection.commit()
+
+    cursor.close()
+
+# Handle error
+except (Exception, psycopg2.DatabaseError) as error:
+    print(error)
+
+# Close connection
+finally:
+    if connection is not None:
+        connection.close()
