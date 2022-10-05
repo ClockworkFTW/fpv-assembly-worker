@@ -54,6 +54,6 @@ def scrapeParts(url, pages):
 
                 writer.writerow([row["name"], row["link"], row["image"]])
 
-    except:
+    except Exception as e:
 
-        print("error")
+        print(e)

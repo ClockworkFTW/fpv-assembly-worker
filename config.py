@@ -22,3 +22,5 @@ postgres = (
         "port": os.getenv("POSTGRES_PORT_DEV"),
     }
 )
+
+uuid_namespace = os.getenv("UUID_NAMESPACE")

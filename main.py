@@ -1,7 +1,7 @@
+import uuid
 import datetime
 import psycopg2
-from uuid import uuid4
-from config import postgres
+from config import postgres, uuid_namespace
 from vendors import getfpv, pyrodrone, racedayquads
 
 
@@ -24,6 +24,8 @@ try:
     rows = cursor.fetchall()
 
     # Get price for each listing
+    i = 1
+
     for row in rows:
 
         listing_id = row[0]
@@ -41,20 +43,36 @@ try:
         if vendor == "racedayquads":
             value = racedayquads.getPrice(url)
 
-        price_id = str(uuid4())
+        if value is not None:
 
-        now = datetime.datetime.now()
+            date = datetime.datetime.now().strftime("%Y-%m-%d")
 
-        created_at = now
-        updated_at = now
+            # # ! TESTING
+            # date = datetime.datetime.now() + datetime.timedelta(days=2)
+            # date = date.strftime("%Y-%m-%d")
+            # # ! TESTING
 
-        # Create price entry
-        cursor.execute(
-            'INSERT INTO prices ("id", "value", "createdAt", "updatedAt", "listingId") VALUES(%s, %s, %s, %s, %s)',
-            (price_id, value, created_at, updated_at, listing_id),
-        )
+            uuid_name = listing_id + date + vendor
 
-        connection.commit()
+            price_id = str(uuid.uuid5(uuid.UUID(uuid_namespace), uuid_name))
+
+            try:
+
+                # Create price entry
+                cursor.execute(
+                    'INSERT INTO prices ("id", "value", "date", "listingId") VALUES(%s, %s, %s, %s)',
+                    (price_id, value, date, listing_id),
+                )
+
+                connection.commit()
+
+            except Exception as e:
+
+                print(e)
+
+        print(f"{i}/{len(rows)} = {value}")
+
+        i += 1
 
     cursor.close()
 
